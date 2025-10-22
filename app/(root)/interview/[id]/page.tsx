@@ -23,7 +23,7 @@ const InterviewDetails = async ({ params }: RouteParams) => {
     interviewId: id,
     userId: user?.id!,
   });
-
+  console.log("InterviewDetails rendered for interview ID:", id);
   return (
     <>
       <div className="flex flex-row gap-4 justify-between">
@@ -36,7 +36,7 @@ const InterviewDetails = async ({ params }: RouteParams) => {
               height={40}
               className="rounded-full object-cover size-[40px]"
             />
-            <h3 className="capitalize">{interview.role} Interview</h3>
+            <h3 className="capitalize">{interview.role} Interviews</h3>
           </div>
 
           <DisplayTechIcons techStack={interview.techstack} />

@@ -82,6 +82,8 @@ const Agent = ({
     };
   }, []);
 
+  console.log("Agent rendered with callStatus:", callStatus);
+  
   useEffect(() => {
     if (messages.length > 0) {
       setLastMessage(messages[messages.length - 1].content);
@@ -207,7 +209,7 @@ const Agent = ({
             <span className="relative">
               {callStatus === "INACTIVE" || callStatus === "FINISHED"
                 ? "Call"
-                : ". . ."}
+                : "Calling . . ."}
             </span>
           </button>
         ) : (
