@@ -155,10 +155,36 @@ End the conversation on a polite and positive note.
   },
 };
 
+const categoryScoreSchema = z.object({
+  name: z
+    .string()
+    .describe("the name of the category (e.g., Technical Knowledge)"),
+  score: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("the score given to the category (0-100)"),
+  comment: z
+    .string()
+    .describe(
+      "A brief comment on the candidate's performance in this category"
+    ),
+});
+
+export const questionSchema = z.object({
+  questions: z.array(z.string()).describe("A list of interview questions"),
+});
+
 export const feedbackSchema = z.object({
-  totalScore: z.number(),
-  categoryScores: z.tuple([
-    z.object({
+  totalScore: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("The candidate's overall score (0-100)"),
+  categoryScores: z
+    .array(categoryScoreSchema)
+    .describe(" A list of detailed catgory scores"),
+  /* z.object({
       name: z.literal("Communication Skills"),
       score: z.number(),
       comment: z.string(),
@@ -182,11 +208,17 @@ export const feedbackSchema = z.object({
       name: z.literal("Confidence and Clarity"),
       score: z.number(),
       comment: z.string(),
-    }),
-  ]),
-  strengths: z.array(z.string()),
-  areasForImprovement: z.array(z.string()),
-  finalAssessment: z.string(),
+    }),*/
+
+  strengths: z
+    .array(z.string())
+    .describe("A list of the candidate's strengths"),
+  areasForImprovement: z
+    .array(z.string())
+    .describe("A list of areas where the candidate can improve"),
+  finalAssessment: z
+    .string()
+    .describe("A brief final assessment of the candidate"),
 });
 
 export const interviewCovers = [

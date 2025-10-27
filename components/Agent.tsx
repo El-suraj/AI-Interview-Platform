@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
+import Error from "next/error";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -83,7 +84,7 @@ const Agent = ({
   }, []);
 
   console.log("Agent rendered with callStatus:", callStatus);
-  
+
   useEffect(() => {
     if (messages.length > 0) {
       setLastMessage(messages[messages.length - 1].content);
@@ -120,12 +121,14 @@ const Agent = ({
     setCallStatus(CallStatus.CONNECTING);
 
     if (type === "generate") {
+      console.log(Error);
       await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
         variableValues: {
           username: userName,
           userid: userId,
         },
       });
+      console.log("VAPI workflow started for generation");
     } else {
       let formattedQuestions = "";
       if (questions) {
