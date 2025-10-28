@@ -5,9 +5,27 @@ import { questionSchema } from "@/constants";
 import { generateObject } from "ai";
 
 export async function POST(request: Request) {
+  let payload;
+  try {
+    payload = await request.json();
+  } catch (e) {
+    console.error(
+      "CRASH 0: Failed to parse request JSON (shouldn't happen with Vapi):",
+      e
+    );
+    return Response.json({ success: false, error: e.message }, { status: 400 });
+  }
   const { type, role, level, techstack, amount, userid } = await request.json();
 
   try {
+    console.log(
+      "LOG 1: Webhook Inputs - User ID:",
+      userid,
+      "Role:",
+      role,
+      "Tech Stack:",
+      techstack
+    );
     const { object } = await generateObject({
       model: google("gemini-2.0-flash-001"),
       schema: questionSchema,
@@ -25,6 +43,10 @@ export async function POST(request: Request) {
         Thank you! <3
     `,
     });
+    console.log(
+      "LOG 2: AI Generation Succeeded. Questions array length:",
+      object.questions.length
+    );
 
     const interview = {
       role: role,
@@ -37,9 +59,12 @@ export async function POST(request: Request) {
       coverImage: getRandomInterviewCover(),
       createdAt: new Date().toISOString(),
     };
-
+    console.log(
+      "LOG 3: Interview Object Prepared. Keys:",
+      Object.keys(interview)
+    );
     await db.collection("interviews").add(interview);
-    console.error("Error:");
+    console.log("LOG 4: Database write SUCCESS.");
     return Response.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error("Error in /api/vapi/generate:", error);
