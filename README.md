@@ -106,7 +106,7 @@ Create a new file named `.env.local` in the root of your project and add the fol
 
 ```env
 NEXT_PUBLIC_VAPI_WEB_TOKEN=
-NEXT_PUBLIC_VAPI_WORKFLOW_ID=
+NEXT_PUBLIC_VAPI_ASSISTANT_ID=
 
 GOOGLE_GENERATIVE_AI_API_KEY=
 
@@ -125,6 +125,15 @@ FIREBASE_PRIVATE_KEY=
 ```
 
 Replace the placeholder values with your actual **[Firebase](https://firebase.google.com/)**, **[Vapi](https://vapi.ai/?utm_source=youtube&utm_medium=video&utm_campaign=jsmastery_recruitingpractice&utm_content=paid_partner&utm_term=recruitingpractice)** credentials.
+
+**Vapi migration (Workflows retired)**
+
+Vapi retired Workflows on **August 18, 2026** — existing workflow IDs no longer run. This project now uses a single regular **Assistant** for **both** the generate and interview flows, selected by the `mode` variable:
+
+1. In the [Vapi Dashboard](https://dashboard.vapi.ai), create one assistant whose system prompt branches on `{{mode}}` — `"generate"` collects the interview details and calls the Gather tool; `"interview"` runs the mock interview using `{{questions}}`.
+2. Attach the **Gather** function tool (server URL `POST <NEXT_PUBLIC_BASE_URL>api/vapi/generate`, parameters `role`, `level`, `type`, `techstack`, `amount`, `userid`) and the End call tool (`end_interview_session`). Do not attach any legacy API-request tool.
+3. Use the dynamic variables `{{username}}`, `{{userid}}`, `{{mode}}`, and `{{questions}}` in its prompt — `components/Agent.tsx` passes them via `variableValues`.
+4. Set `NEXT_PUBLIC_VAPI_ASSISTANT_ID` in `.env.local` **and** in your Vercel project environment variables (then redeploy — `NEXT_PUBLIC_*` values are inlined at build time). The old `NEXT_PUBLIC_VAPI_WORKFLOW_ID` is only kept as a legacy fallback.
 
 **Running the Project**
 

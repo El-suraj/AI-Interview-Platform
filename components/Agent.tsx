@@ -120,15 +120,26 @@ const Agent = ({
   const handleCall = async () => {
     setCallStatus(CallStatus.CONNECTING);
 
+    // One dashboard assistant serves both flows; its system prompt branches on
+    // the `mode` variable (see README "Vapi migration").
+    const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID;
+
     if (type === "generate") {
-      console.log(Error);
-      await vapi.start(process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, {
-        variableValues: {
-          username: userName,
-          userid: userId,
-        },
-      });
-      console.log("VAPI workflow started for generation");
+      console.log(
+        "Starting Vapi assistant for interview generation:",
+        assistantId || process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID
+      );
+      await vapi.start(
+        assistantId || process.env.NEXT_PUBLIC_VAPI_WORKFLOW_ID!, // legacy fallback
+        {
+          variableValues: {
+            mode: "generate",
+            username: userName,
+            userid: userId,
+          },
+        }
+      );
+      console.log("VAPI assistant started for generation");
     } else {
       let formattedQuestions = "";
       if (questions) {
@@ -137,8 +148,13 @@ const Agent = ({
           .join("\n");
       }
 
-      await vapi.start(interviewer, {
+      // Falls back to the inline `interviewer` DTO when no assistant ID is
+      // configured, so the interview flow still works without dashboard setup.
+      await vapi.start(assistantId || interviewer, {
         variableValues: {
+          mode: "interview",
+          username: userName,
+          userid: userId,
           questions: formattedQuestions,
         },
       });
