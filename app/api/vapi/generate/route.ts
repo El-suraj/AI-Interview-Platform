@@ -79,7 +79,7 @@ export async function POST(request: Request) {
       techstack
     );
     const { object } = await generateObject({
-      model: google("gemini-2.0-flash-001"),
+      model: google("gemini-3.8-flash "),
       schema: questionSchema,
       prompt: `Prepare questions for a job interview.
         The job role is ${role}.
