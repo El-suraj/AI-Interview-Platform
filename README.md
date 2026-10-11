@@ -20,8 +20,13 @@ PrepWise is a modern interview preparation platform built with Next.js, Firebase
 - Real-time transcript capture and analysis
 - Personalized feedback with strengths and improvement areas
 - Secure authentication with Firebase
-- Dashboard to manage, review, and retake interviews
+- Dashboard to manage, review, and retake interviews, with completion tracked per user
 - Responsive UI built for desktop and mobile devices
+
+Completed interviews are identified by the signed-in user's saved feedback, not
+by the interview's `finalized` field (which indicates that an interview is
+available). Opening a completed interview shows its saved feedback; retaking it
+updates that user's feedback record.
 
 ## 🧰 Tech Stack
 
@@ -31,7 +36,7 @@ PrepWise is a modern interview preparation platform built with Next.js, Firebase
 | Backend | Next.js API routes |
 | Authentication | Firebase Auth |
 | Database | Firebase Firestore |
-| AI / Voice | Vapi AI, Google Gemini |
+| AI / Voice | Vapi AI, Google Gemini Interactions API (`gemini-3.8-flash`) |
 | Validation | Zod |
 | UI Components | shadcn/ui |
 

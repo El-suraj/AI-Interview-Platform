@@ -11,19 +11,21 @@ import {
 import { getCurrentUser } from "@/lib/actions/auth.action";
 import DisplayTechIcons from "@/components/DisplayTechIcons";
 
-const InterviewDetails = async ({ params }: RouteParams) => {
-  const { id } = await params;
+const InterviewDetails = async ({ params, searchParams }: RouteParams) => {
+  const [{ id }, { retake }] = await Promise.all([params, searchParams]);
 
   const user = await getCurrentUser();
+  if (!user) redirect("/sign-in");
 
   const interview = await getInterviewById(id);
   if (!interview) redirect("/");
 
   const feedback = await getFeedbackByInterviewId({
     interviewId: id,
-    userId: user?.id!,
+    userId: user.id,
   });
-  console.log("InterviewDetails rendered for interview ID:", id);
+  if (feedback && retake !== "1") redirect(`/interview/${id}/feedback`);
+
   return (
     <>
       <div className="flex flex-row gap-4 justify-between">
@@ -48,12 +50,11 @@ const InterviewDetails = async ({ params }: RouteParams) => {
       </div>
 
       <Agent
-        userName={user?.name!}
-        userId={user?.id}
+        userName={user.name}
+        userId={user.id}
         interviewId={id}
         type="interview"
         questions={interview.questions}
-        feedbackId={feedback?.id}
       />
     </>
   );

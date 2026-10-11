@@ -50,6 +50,11 @@ const InterviewCard = async ({
           >
             <p className="badge-text ">{normalizedType}</p>
           </div>
+          {feedback && (
+            <p className="mt-3 w-fit rounded-full bg-green-900/40 px-3 py-1 text-sm font-semibold text-green-300">
+              Completed
+            </p>
+          )}
 
           {/* Cover Image */}
           <Image

@@ -13,14 +13,16 @@ import { getCurrentUser } from "@/lib/actions/auth.action";
 const Feedback = async ({ params }: RouteParams) => {
   const { id } = await params;
   const user = await getCurrentUser();
+  if (!user) redirect("/sign-in");
 
   const interview = await getInterviewById(id);
   if (!interview) redirect("/");
 
   const feedback = await getFeedbackByInterviewId({
     interviewId: id,
-    userId: user?.id!,
+    userId: user.id,
   });
+  if (!feedback) redirect(`/interview/${id}?retake=1`);
 
   return (
     <section className="section-feedback">
@@ -103,7 +105,7 @@ const Feedback = async ({ params }: RouteParams) => {
 
         <Button className="btn-primary flex-1">
           <Link
-            href={`/interview/${id}`}
+            href={`/interview/${id}?retake=1`}
             className="flex w-full justify-center"
           >
             <p className="text-sm font-semibold text-black text-center">

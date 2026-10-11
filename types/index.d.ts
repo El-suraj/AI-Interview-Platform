@@ -29,7 +29,6 @@ interface CreateFeedbackParams {
   interviewId: string;
   userId: string;
   transcript: { role: string; content: string }[];
-  feedbackId?: string;
 }
 
 interface User {
@@ -53,7 +52,6 @@ interface AgentProps {
   userId?: string;
   profileImage?: string;
   interviewId?: string;
-  feedbackId?: string;
   type: "generate" | "interview";
   questions?: string[];
 }

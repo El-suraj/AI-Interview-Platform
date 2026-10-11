@@ -1,15 +1,35 @@
 "use server";
 
-import { generateObject } from "ai";
-import { google } from "@ai-sdk/google";
-
 import { db } from "@/firebase/admin";
-import { feedbackSchema } from "@/constants";
+import { getCurrentUser } from "@/lib/actions/auth.action";
+import { generateFeedback } from "@/lib/ai";
 
 export async function createFeedback(params: CreateFeedbackParams) {
-  const { interviewId, userId, transcript, feedbackId } = params;
+  const { interviewId, userId, transcript } = params;
+  let stage = "session verification";
 
   try {
+    const user = await getCurrentUser();
+    if (!user || user.id !== userId) {
+      return { success: false, error: "Please sign in to save interview feedback." };
+    }
+
+    if (!interviewId || !transcript.length) {
+      return {
+        success: false,
+        error: "No interview transcript was captured. Please try the interview again.",
+      };
+    }
+
+    stage = "interview lookup";
+    const interviewSnapshot = await db
+      .collection("interviews")
+      .doc(interviewId)
+      .get();
+    if (!interviewSnapshot.exists) {
+      return { success: false, error: "This interview could not be found." };
+    }
+
     const formattedTranscript = transcript
       .map(
         (sentence: { role: string; content: string }) =>
@@ -17,10 +37,8 @@ export async function createFeedback(params: CreateFeedbackParams) {
       )
       .join("");
 
-    const { object } = await generateObject({
-      model: google("gemini-3.8-flash"),
-      schema: feedbackSchema,
-      prompt: `
+    stage = "Gemini feedback generation";
+    const object = await generateFeedback(`
         You are an AI interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories. Be thorough and detailed in your analysis. Don't be lenient with the candidate. If there are mistakes or areas for improvement, point them out.
         Transcript:
         ${formattedTranscript}
@@ -31,10 +49,8 @@ export async function createFeedback(params: CreateFeedbackParams) {
         - **Problem-Solving**: Ability to analyze problems and propose solutions.
         - **Cultural & Role Fit**: Alignment with company values and job role.
         - **Confidence & Clarity**: Confidence in responses, engagement, and clarity.
-        `,
-      system:
-        "You are a professional interviewer analyzing a mock interview. Your task is to evaluate the candidate based on structured categories",
-    });
+        You are a professional interviewer analyzing a mock interview. Be thorough, detailed, and evidence-based.
+      `);
 
     const feedback = {
       interviewId: interviewId,
@@ -47,20 +63,31 @@ export async function createFeedback(params: CreateFeedbackParams) {
       createdAt: new Date().toISOString(),
     };
 
-    let feedbackRef;
+    stage = "checking for existing feedback";
+    const existingFeedback = await db
+      .collection("feedback")
+      .where("interviewId", "==", interviewId)
+      .where("userId", "==", user.id)
+      .limit(1)
+      .get();
+    const feedbackRef = existingFeedback.empty
+      ? db.collection("feedback").doc(`${interviewId}_${user.id}`)
+      : existingFeedback.docs[0].ref;
 
-    if (feedbackId) {
-      feedbackRef = db.collection("feedback").doc(feedbackId);
-    } else {
-      feedbackRef = db.collection("feedback").doc();
-    }
-
+    stage = "Firestore feedback write";
     await feedbackRef.set(feedback);
 
+    console.info("[feedback] saved successfully");
     return { success: true, feedbackId: feedbackRef.id };
   } catch (error) {
-    console.error("Error saving feedback:", error);
-    return { success: false };
+    console.error(`[feedback] failed during ${stage}:`, error);
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Feedback could not be generated or saved. Please try again.",
+    };
   }
 }
 
@@ -74,6 +101,8 @@ export async function getFeedbackByInterviewId(
   params: GetFeedbackByInterviewIdParams
 ): Promise<Feedback | null> {
   const { interviewId, userId } = params;
+  const user = await getCurrentUser();
+  if (!user || user.id !== userId) return null;
 
   const querySnapshot = await db
     .collection("feedback")
@@ -110,6 +139,9 @@ export async function getLatestInterviews(
 export async function getInterviewsByUserId(
   userId: string
 ): Promise<Interview[] | null> {
+  const user = await getCurrentUser();
+  if (!user || user.id !== userId) return null;
+
   const interviews = await db
     .collection("interviews")
     .where("userId", "==", userId)

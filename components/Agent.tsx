@@ -1,14 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 import { vapi } from "@/lib/vapi.sdk";
 import { interviewer } from "@/constants";
 import { createFeedback } from "@/lib/actions/general.action";
-import Error from "next/error";
 
 enum CallStatus {
   INACTIVE = "INACTIVE",
@@ -26,7 +25,6 @@ const Agent = ({
   userName,
   userId,
   interviewId,
-  feedbackId,
   type,
   questions,
 }: AgentProps) => {
@@ -35,6 +33,10 @@ const Agent = ({
   const [messages, setMessages] = useState<SavedMessage[]>([]);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [lastMessage, setLastMessage] = useState<string>("");
+  const [feedbackError, setFeedbackError] = useState("");
+  const [isSavingFeedback, setIsSavingFeedback] = useState(false);
+  const [feedbackRetry, setFeedbackRetry] = useState(0);
+  const feedbackGenerationStarted = useRef(false);
 
   useEffect(() => {
     const onCallStart = () => {
@@ -62,8 +64,8 @@ const Agent = ({
       setIsSpeaking(false);
     };
 
-    const onError = (error: Error) => {
-      console.log("Error:", error);
+    const onError = (error: unknown) => {
+      console.error("Vapi error:", error);
     };
 
     vapi.on("call-start", onCallStart);
@@ -83,41 +85,73 @@ const Agent = ({
     };
   }, []);
 
-  console.log("Agent rendered with callStatus:", callStatus);
-
   useEffect(() => {
     if (messages.length > 0) {
       setLastMessage(messages[messages.length - 1].content);
     }
+  }, [messages]);
 
-    const handleGenerateFeedback = async (messages: SavedMessage[]) => {
-      console.log("handleGenerateFeedback");
+  const handleGenerateFeedback = useCallback(async () => {
+    if (!interviewId || !userId) {
+      setFeedbackError("Your session has expired. Please sign in and try again.");
+      return;
+    }
 
-      const { success, feedbackId: id } = await createFeedback({
-        interviewId: interviewId!,
-        userId: userId!,
+    console.info("[feedback] generating from captured final messages", {
+      messageCount: messages.length,
+    });
+    setIsSavingFeedback(true);
+    setFeedbackError("");
+
+    try {
+      const result = await createFeedback({
+        interviewId,
+        userId,
         transcript: messages,
-        feedbackId,
       });
 
-      if (success && id) {
+      if (result.success && result.feedbackId) {
+        console.info("[feedback] generation and save completed");
         router.push(`/interview/${interviewId}/feedback`);
       } else {
-        console.log("Error saving feedback");
-        router.push("/");
+        setFeedbackError(
+          result.error ?? "Feedback could not be saved. Please try again."
+        );
       }
-    };
-
-    if (callStatus === CallStatus.FINISHED) {
-      if (type === "generate") {
-        router.push("/");
-      } else {
-        handleGenerateFeedback(messages);
-      }
+    } catch (error) {
+      console.error("Failed to generate interview feedback:", error);
+      setFeedbackError(
+        error instanceof Error
+          ? error.message
+          : "Feedback could not be generated or saved. Please try again."
+      );
+    } finally {
+      setIsSavingFeedback(false);
     }
-  }, [messages, callStatus, feedbackId, interviewId, router, type, userId]);
+  }, [interviewId, messages, router, userId]);
+
+  useEffect(() => {
+    if (callStatus !== CallStatus.FINISHED) return;
+    if (type === "generate") {
+      router.push("/");
+      return;
+    }
+    if (feedbackGenerationStarted.current) return;
+
+    // Wait briefly for a final transcript event that may arrive after call-end.
+    const timeout = window.setTimeout(() => {
+      feedbackGenerationStarted.current = true;
+      void handleGenerateFeedback();
+    }, 800);
+
+    return () => window.clearTimeout(timeout);
+  }, [callStatus, feedbackRetry, handleGenerateFeedback, router, type]);
 
   const handleCall = async () => {
+    feedbackGenerationStarted.current = false;
+    setFeedbackError("");
+    setMessages([]);
+    setLastMessage("");
     setCallStatus(CallStatus.CONNECTING);
 
     // One dashboard assistant serves both flows; its system prompt branches on
@@ -215,9 +249,39 @@ const Agent = ({
         </div>
       )}
 
+      {feedbackError && (
+        <div role="alert" className="flex flex-col items-center gap-3 text-center">
+          <p>{feedbackError}</p>
+          <button
+            type="button"
+            className="btn-primary px-4 py-2"
+            onClick={() => {
+              if (messages.length === 0) {
+                void handleCall();
+                return;
+              }
+              feedbackGenerationStarted.current = false;
+              setFeedbackRetry((attempt) => attempt + 1);
+            }}
+          >
+            {messages.length > 0 ? "Retry feedback" : "Start interview again"}
+          </button>
+        </div>
+      )}
+
+      {isSavingFeedback && (
+        <p role="status" className="text-center">
+          Generating and saving your interview feedback...
+        </p>
+      )}
+
       <div className="w-full flex justify-center">
         {callStatus !== "ACTIVE" ? (
-          <button className="relative btn-call" onClick={() => handleCall()}>
+          <button
+            className="relative btn-call"
+            onClick={() => handleCall()}
+            disabled={isSavingFeedback}
+          >
             <span
               className={cn(
                 "absolute animate-ping rounded-full opacity-75",
